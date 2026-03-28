@@ -26,14 +26,17 @@
   --works-green: #06d6a0;
   --text-primary: #e8e8e8;
   --text-muted: #7a8a99;
-  --mono: 'Space Mono', monospace;
-  --display: 'Bebas Neue', cursive;
-  --hand: 'Caveat', cursive;
+  --mono: 'Space Mono', 'Courier New', Courier, monospace;
+  --display: 'Bebas Neue', Impact, 'Arial Narrow Bold', sans-serif;
+  --hand: 'Caveat', 'Comic Sans MS', 'Chalkboard SE', cursive;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-html { scroll-behavior: smooth; }
+html { 
+  scroll-behavior: smooth; 
+  scroll-snap-type: y mandatory; 
+}
 
 body {
   background: var(--dream-bg);
@@ -142,6 +145,7 @@ section {
   justify-content: center;
   overflow: hidden;
   padding: 80px 20px;
+  scroll-snap-align: start;
 }
 
 /* =============================================
@@ -769,6 +773,9 @@ nav {
   .dream-title { font-size: 52px; }
   .bug-title { font-size: 44px; }
   .works-title { font-size: 60px; }
+  .grind-heading { font-size: 44px; }
+  .grind-time { font-size: 50px; }
+  .tut-heading { font-size: 40px; }
 }
 </style>
 </head>
@@ -1371,6 +1378,123 @@ document.querySelectorAll('.error-card').forEach(card => {
     reaction.textContent = sassList[Math.floor(Math.random() * sassList.length)];
     gsap.from(reaction, { y: 10, opacity: 0, duration: 0.3 });
   });
+});
+
+// =============================================
+// INTERACTIVE ENHANCEMENTS (3D Tilt, Audio, Caffeine)
+// =============================================
+
+// Web Audio API Context
+let audioCtx;
+function initAudio() {
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+}
+
+function playSound(type) {
+  if (!audioCtx) return;
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+  const osc = audioCtx.createOscillator();
+  const gainNode = audioCtx.createGain();
+  osc.connect(gainNode);
+  gainNode.connect(audioCtx.destination);
+  
+  if (type === 'click') {
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(1200, audioCtx.currentTime + 0.05);
+    gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.05);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.05);
+  } else if (type === 'ding') {
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+    osc.frequency.setValueAtTime(1200, audioCtx.currentTime + 0.1);
+    gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.8);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.8);
+  } else if (type === 'type') {
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(100 + Math.random() * 50, audioCtx.currentTime);
+    gainNode.gain.setValueAtTime(0.03, audioCtx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.03);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.03);
+  }
+}
+
+// Ensure Audio Context is initialized on first interaction
+document.body.addEventListener('click', initAudio, { once: true });
+
+// 3D Tilt Effect for premium interactivity
+document.querySelectorAll('.error-card, .stackoverflow-widget').forEach(el => {
+  el.addEventListener('mousemove', (e) => {
+    const rect = el.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+    const rotateX = ((y - centerY) / centerY) * -12;
+    const rotateY = ((x - centerX) / centerX) * 12;
+    
+    gsap.to(el, {
+      rotationX: rotateX,
+      rotationY: rotateY,
+      transformPerspective: 1000,
+      ease: 'power1.out',
+      duration: 0.1
+    });
+  });
+  el.addEventListener('mouseleave', () => {
+    gsap.to(el, { rotationX: 0, rotationY: 0, duration: 0.5, ease: 'power2.out' });
+  });
+});
+
+// Interactive Coffee Cups
+document.querySelectorAll('.cup').forEach(cup => {
+  cup.style.cursor = 'pointer';
+  cup.addEventListener('click', () => {
+    gsap.fromTo(cup, { scale: 1.5, rotation: -20 }, { scale: 1, rotation: 0, duration: 0.5, ease: 'bounce.out' });
+    cup.style.filter = 'drop-shadow(0 0 12px rgba(255,154,60,0.9))';
+    playSound('click');
+  });
+});
+
+// Interactive Browser Tabs
+document.querySelectorAll('.browser-tab').forEach(tab => {
+  tab.style.cursor = 'pointer';
+  tab.addEventListener('click', () => {
+    playSound('click');
+    gsap.fromTo(tab, { y: '+=5' }, { y: '-=5', duration: 0.2, yoyo: true, repeat: 1 });
+  });
+});
+
+// Grind typing sounds
+let typingInterval;
+ScrollTrigger.create({
+  trigger: '#grind',
+  start: 'top 50%',
+  end: 'bottom 50%',
+  onEnter: () => {
+    typingInterval = setInterval(() => { if(Math.random() > 0.4) playSound('type'); }, 100);
+  },
+  onLeave: () => clearInterval(typingInterval),
+  onEnterBack: () => {
+    typingInterval = setInterval(() => { if(Math.random() > 0.4) playSound('type'); }, 100);
+  },
+  onLeaveBack: () => clearInterval(typingInterval)
+});
+
+// IT WORKS success sound
+ScrollTrigger.create({
+  trigger: '#works',
+  start: 'top 40%',
+  onEnter: () => {
+    setTimeout(() => playSound('ding'), 300);
+  }
 });
 
 // START
