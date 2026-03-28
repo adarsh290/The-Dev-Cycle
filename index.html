@@ -1,0 +1,1380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>The Dev Cycle — A True Story</title>
+
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Bebas+Neue&family=Caveat:wght@600;700&display=swap" rel="stylesheet"/>
+
+<!-- GSAP -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+
+<style>
+/* =============================================
+   CSS VARIABLES & RESET
+   ============================================= */
+:root {
+  --dream-bg: #0a0f1e;
+  --dream-accent: #64ffda;
+  --dream-gold: #ffd166;
+  --bug-red: #ff4d6d;
+  --grind-orange: #ff9a3c;
+  --works-green: #06d6a0;
+  --text-primary: #e8e8e8;
+  --text-muted: #7a8a99;
+  --mono: 'Space Mono', monospace;
+  --display: 'Bebas Neue', cursive;
+  --hand: 'Caveat', cursive;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--dream-bg);
+  color: var(--text-primary);
+  font-family: var(--mono);
+  overflow-x: hidden;
+  cursor: none;
+}
+
+/* =============================================
+   CUSTOM CURSOR
+   ============================================= */
+.cursor {
+  width: 12px; height: 12px;
+  background: var(--dream-accent);
+  border-radius: 50%;
+  position: fixed;
+  top: 0; left: 0;
+  pointer-events: none;
+  z-index: 9999;
+  transition: transform 0.1s ease, background 0.3s ease;
+  mix-blend-mode: difference;
+}
+.cursor-ring {
+  width: 36px; height: 36px;
+  border: 1.5px solid var(--dream-accent);
+  border-radius: 50%;
+  position: fixed;
+  top: 0; left: 0;
+  pointer-events: none;
+  z-index: 9998;
+  transition: transform 0.15s ease, border-color 0.3s ease, width 0.2s, height 0.2s;
+  mix-blend-mode: difference;
+}
+.cursor.hover { transform: scale(2.5); }
+.cursor-ring.hover { width: 60px; height: 60px; opacity: 0.5; }
+
+/* =============================================
+   LOADING SCREEN
+   ============================================= */
+#loader {
+  position: fixed; inset: 0;
+  background: #000;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+}
+.loader-terminal {
+  width: min(500px, 90vw);
+  background: #0d1117;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 0 60px rgba(100,255,218,0.1);
+}
+.loader-bar {
+  background: #161b22;
+  padding: 10px 16px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.loader-dot { width: 12px; height: 12px; border-radius: 50%; }
+.loader-dot:nth-child(1) { background: #ff5f57; }
+.loader-dot:nth-child(2) { background: #febc2e; }
+.loader-dot:nth-child(3) { background: #28c840; }
+.loader-title-bar { margin-left: auto; font-size: 11px; color: #7a8a99; font-family: var(--mono); }
+.loader-body { padding: 20px; min-height: 160px; }
+.loader-line {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--dream-accent);
+  line-height: 2;
+  opacity: 0;
+}
+.loader-line.err { color: var(--bug-red); }
+.loader-line.warn { color: var(--dream-gold); }
+.loader-progress {
+  height: 3px;
+  background: #161b22;
+  margin: 12px 0 0;
+  border-radius: 2px;
+  overflow: hidden;
+}
+.loader-progress-bar {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--dream-accent), var(--works-green));
+  transition: width 0.3s ease;
+  border-radius: 2px;
+}
+
+/* =============================================
+   SECTION BASE
+   ============================================= */
+section {
+  min-height: 100vh;
+  width: 100%;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 80px 20px;
+}
+
+/* =============================================
+   NAV
+   ============================================= */
+nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 1000;
+  padding: 16px 40px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(10,15,30,0.7);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(100,255,218,0.1);
+  transform: translateY(-100%);
+}
+.nav-logo {
+  font-family: var(--display);
+  font-size: 22px;
+  letter-spacing: 2px;
+  color: var(--dream-accent);
+}
+.nav-steps {
+  display: flex;
+  gap: 6px;
+}
+.nav-step {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: rgba(100,255,218,0.2);
+  border: 1px solid rgba(100,255,218,0.4);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+.nav-step.active { background: var(--dream-accent); box-shadow: 0 0 10px var(--dream-accent); }
+
+/* =============================================
+   SECTION 1: THE DREAM
+   ============================================= */
+#dream {
+  background: radial-gradient(ellipse at 50% 40%, #0f2044 0%, #0a0f1e 70%);
+}
+.stars {
+  position: absolute; inset: 0;
+  pointer-events: none;
+}
+.star {
+  position: absolute;
+  background: white;
+  border-radius: 50%;
+  animation: twinkle var(--dur, 3s) ease-in-out infinite var(--delay, 0s);
+}
+@keyframes twinkle {
+  0%, 100% { opacity: 0.2; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.4); }
+}
+.dream-content { text-align: center; position: relative; z-index: 2; }
+.dream-eyebrow {
+  font-size: 12px;
+  letter-spacing: 6px;
+  color: var(--dream-accent);
+  text-transform: uppercase;
+  margin-bottom: 20px;
+  opacity: 0;
+}
+.dream-title {
+  font-family: var(--display);
+  font-size: clamp(60px, 12vw, 140px);
+  line-height: 0.9;
+  letter-spacing: 2px;
+  background: linear-gradient(135deg, #fff 0%, var(--dream-accent) 50%, var(--dream-gold) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  opacity: 0;
+  transform: translateY(40px);
+}
+.dream-sub {
+  font-family: var(--hand);
+  font-size: clamp(18px, 3vw, 26px);
+  color: var(--dream-gold);
+  margin-top: 20px;
+  opacity: 0;
+}
+.dream-code-float {
+  position: absolute;
+  font-size: 13px;
+  color: rgba(100,255,218,0.15);
+  font-family: var(--mono);
+  pointer-events: none;
+  animation: float-code 8s ease-in-out infinite;
+  white-space: nowrap;
+}
+@keyframes float-code {
+  0%, 100% { transform: translateY(0px) rotate(-2deg); }
+  50% { transform: translateY(-20px) rotate(2deg); }
+}
+.scroll-hint {
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  opacity: 0;
+}
+.scroll-hint span { font-size: 11px; letter-spacing: 3px; color: var(--text-muted); text-transform: uppercase; }
+.scroll-arrow {
+  width: 20px; height: 20px;
+  border-right: 2px solid var(--dream-accent);
+  border-bottom: 2px solid var(--dream-accent);
+  transform: rotate(45deg);
+  animation: bounce-arrow 1.5s ease-in-out infinite;
+}
+@keyframes bounce-arrow {
+  0%, 100% { transform: rotate(45deg) translateY(0); }
+  50% { transform: rotate(45deg) translateY(6px); }
+}
+
+/* =============================================
+   SECTION 2: TUTORIAL HELL
+   ============================================= */
+#tutorial {
+  background: #0e1621;
+  align-items: flex-start;
+  padding: 80px 40px;
+}
+.section-label {
+  font-size: 11px;
+  letter-spacing: 5px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+.section-num {
+  font-family: var(--display);
+  font-size: clamp(100px, 15vw, 180px);
+  color: rgba(255,255,255,0.03);
+  position: absolute;
+  right: -10px;
+  top: 40px;
+  line-height: 1;
+  pointer-events: none;
+  user-select: none;
+}
+.tutorial-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 60px;
+  max-width: 1100px;
+  width: 100%;
+  margin: 0 auto;
+  align-items: center;
+}
+.tut-heading {
+  font-family: var(--display);
+  font-size: clamp(42px, 7vw, 90px);
+  line-height: 0.95;
+  letter-spacing: 1px;
+  color: var(--dream-gold);
+}
+.tut-body {
+  font-size: 14px;
+  line-height: 2;
+  color: var(--text-muted);
+  margin-top: 20px;
+}
+.tut-body strong { color: var(--dream-gold); font-style: italic; }
+.tab-stack {
+  position: relative;
+  height: 280px;
+  width: 100%;
+}
+.browser-tab {
+  position: absolute;
+  width: 100%;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 10px;
+  overflow: hidden;
+  transform-origin: top center;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+.browser-tab:nth-child(1) { top: 0; z-index: 5; }
+.browser-tab:nth-child(2) { top: 16px; z-index: 4; transform: scale(0.97); filter: brightness(0.85); }
+.browser-tab:nth-child(3) { top: 32px; z-index: 3; transform: scale(0.94); filter: brightness(0.7); }
+.browser-tab:nth-child(4) { top: 48px; z-index: 2; transform: scale(0.91); filter: brightness(0.55); }
+.browser-topbar {
+  background: #0d1117;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.b-dots { display: flex; gap: 6px; }
+.b-dot { width: 10px; height: 10px; border-radius: 50%; }
+.b-dot.r { background: #ff5f57; } .b-dot.y { background: #febc2e; } .b-dot.g { background: #28c840; }
+.b-url {
+  flex: 1;
+  background: #161b22;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: var(--mono);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.b-body {
+  padding: 16px;
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: var(--mono);
+  line-height: 1.7;
+}
+.b-body .highlight { color: var(--dream-accent); }
+.confidence-bar {
+  margin-top: 30px;
+  background: #161b22;
+  border-radius: 8px;
+  padding: 16px;
+  border: 1px solid #30363d;
+}
+.conf-label { font-size: 11px; letter-spacing: 2px; color: var(--text-muted); margin-bottom: 10px; }
+.conf-track { height: 8px; background: #0d1117; border-radius: 4px; overflow: hidden; }
+.conf-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--dream-gold), #ff9a3c);
+  transition: width 1.5s cubic-bezier(0.4,0,0.2,1);
+}
+.conf-note { font-size: 11px; color: var(--bug-red); margin-top: 8px; font-style: italic; }
+
+/* =============================================
+   SECTION 3: THE BUG
+   ============================================= */
+#bug {
+  background: #0a0005;
+  position: relative;
+}
+.bug-bg-glitch {
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(255,77,109,0.03) 2px,
+    rgba(255,77,109,0.03) 4px
+  );
+  pointer-events: none;
+  animation: scan 8s linear infinite;
+}
+@keyframes scan {
+  0% { background-position: 0 0; }
+  100% { background-position: 0 200px; }
+}
+.bug-content { text-align: center; position: relative; z-index: 2; max-width: 900px; }
+.bug-eyebrow {
+  font-size: 11px;
+  letter-spacing: 5px;
+  color: var(--bug-red);
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+.bug-title {
+  font-family: var(--display);
+  font-size: clamp(50px, 10vw, 120px);
+  color: var(--bug-red);
+  line-height: 0.9;
+  text-shadow: 0 0 40px rgba(255,77,109,0.5);
+  animation: glitch-title 4s ease-in-out infinite;
+}
+@keyframes glitch-title {
+  0%, 90%, 100% { text-shadow: 0 0 40px rgba(255,77,109,0.5); transform: none; }
+  91% { transform: translate(-3px, 0); text-shadow: 3px 0 #64ffda, -3px 0 #ff4d6d; }
+  92% { transform: translate(3px, 0); text-shadow: -3px 0 #64ffda, 3px 0 #ff4d6d; }
+  93% { transform: none; }
+}
+.error-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  margin-top: 50px;
+  width: 100%;
+  max-width: 900px;
+}
+.error-card {
+  background: rgba(255,77,109,0.07);
+  border: 1px solid rgba(255,77,109,0.25);
+  border-radius: 10px;
+  padding: 20px;
+  text-align: left;
+  transform: translateY(40px);
+  opacity: 0;
+  transition: border-color 0.3s, transform 0.2s;
+  cursor: pointer;
+}
+.error-card:hover {
+  border-color: var(--bug-red);
+  transform: translateY(-4px) !important;
+  box-shadow: 0 10px 30px rgba(255,77,109,0.2);
+}
+.err-type { font-size: 10px; letter-spacing: 3px; color: var(--bug-red); text-transform: uppercase; margin-bottom: 8px; }
+.err-msg { font-size: 13px; color: var(--text-primary); line-height: 1.6; }
+.err-line { font-size: 11px; color: var(--text-muted); margin-top: 8px; }
+.err-reaction {
+  font-family: var(--hand);
+  font-size: 16px;
+  color: var(--dream-gold);
+  margin-top: 8px;
+}
+.sob-counter {
+  margin-top: 40px;
+  font-family: var(--hand);
+  font-size: 22px;
+  color: var(--text-muted);
+}
+.sob-num {
+  font-family: var(--display);
+  font-size: 80px;
+  color: var(--bug-red);
+  display: block;
+  line-height: 1;
+  text-shadow: 0 0 30px rgba(255,77,109,0.5);
+}
+
+/* =============================================
+   SECTION 4: THE GRIND
+   ============================================= */
+#grind {
+  background: #0c0a00;
+}
+.grind-layout {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 60px;
+  max-width: 1100px;
+  width: 100%;
+  align-items: start;
+  padding-top: 20px;
+}
+.grind-heading {
+  font-family: var(--display);
+  font-size: clamp(48px, 8vw, 100px);
+  color: var(--grind-orange);
+  line-height: 0.9;
+  text-shadow: 0 0 50px rgba(255,154,60,0.3);
+}
+.grind-time {
+  font-family: var(--display);
+  font-size: clamp(60px, 10vw, 130px);
+  color: rgba(255,154,60,0.15);
+  display: block;
+  line-height: 1;
+}
+.grind-desc {
+  font-size: 13px;
+  line-height: 2;
+  color: var(--text-muted);
+  margin-top: 16px;
+}
+.grind-desc strong { color: var(--grind-orange); }
+.coffee-meter {
+  background: #161200;
+  border: 1px solid rgba(255,154,60,0.2);
+  border-radius: 12px;
+  padding: 24px;
+  margin-top: 30px;
+}
+.coffee-title { font-size: 11px; letter-spacing: 3px; color: var(--grind-orange); text-transform: uppercase; margin-bottom: 16px; }
+.coffee-cups { display: flex; gap: 10px; flex-wrap: wrap; }
+.cup {
+  font-size: 28px;
+  opacity: 0.2;
+  transform: scale(0.8);
+  transition: all 0.4s ease;
+  cursor: default;
+  filter: grayscale(1);
+}
+.cup.consumed {
+  opacity: 1;
+  transform: scale(1);
+  filter: none;
+  animation: cup-pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+@keyframes cup-pop {
+  0% { transform: scale(0); }
+  70% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+.stackoverflow-widget {
+  background: #161200;
+  border: 1px solid rgba(255,154,60,0.2);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.so-header {
+  background: rgba(255,154,60,0.1);
+  padding: 14px 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--grind-orange);
+}
+.so-logo { font-size: 18px; }
+.so-question { padding: 20px; }
+.so-q-title { font-size: 14px; color: var(--text-primary); line-height: 1.5; margin-bottom: 12px; }
+.so-q-body { font-size: 12px; color: var(--text-muted); line-height: 1.8; }
+.so-answers { border-top: 1px solid rgba(255,154,60,0.1); }
+.so-answer {
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255,154,60,0.05);
+  display: flex;
+  gap: 14px;
+  font-size: 12px;
+  align-items: flex-start;
+}
+.so-score {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-muted);
+  min-width: 30px;
+  font-size: 16px;
+  font-weight: bold;
+}
+.so-score.accepted { color: var(--works-green); }
+.so-score-num { font-size: 18px; }
+.so-a-text { color: var(--text-muted); line-height: 1.7; }
+.so-a-text .inline-code {
+  background: rgba(255,154,60,0.1);
+  color: var(--grind-orange);
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-size: 11px;
+}
+.so-mark { color: var(--works-green); font-size: 18px; }
+
+/* =============================================
+   SECTION 5: IT WORKS!!
+   ============================================= */
+#works {
+  background: radial-gradient(ellipse at 50% 50%, #001a12 0%, #000a06 70%);
+  overflow: hidden;
+}
+.confetti-container {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.confetti-piece {
+  position: absolute;
+  top: -20px;
+  width: 8px;
+  height: 14px;
+  border-radius: 2px;
+  animation: confetti-fall var(--fall-dur, 3s) linear var(--fall-delay, 0s) infinite;
+  opacity: 0;
+}
+@keyframes confetti-fall {
+  0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(110vh) rotate(720deg); opacity: 0.2; }
+}
+.works-content { text-align: center; position: relative; z-index: 2; }
+.works-eyebrow {
+  font-size: 11px;
+  letter-spacing: 6px;
+  color: var(--works-green);
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+.works-title {
+  font-family: var(--display);
+  font-size: clamp(70px, 14vw, 160px);
+  line-height: 0.85;
+  color: var(--works-green);
+  text-shadow: 0 0 60px rgba(6,214,160,0.5), 0 0 120px rgba(6,214,160,0.2);
+  animation: works-pulse 2s ease-in-out infinite;
+}
+@keyframes works-pulse {
+  0%, 100% { text-shadow: 0 0 60px rgba(6,214,160,0.5); }
+  50% { text-shadow: 0 0 100px rgba(6,214,160,0.8), 0 0 200px rgba(6,214,160,0.3); }
+}
+.works-subtitle {
+  font-family: var(--hand);
+  font-size: clamp(20px, 3.5vw, 32px);
+  color: var(--dream-gold);
+  margin-top: 16px;
+}
+.imposter-warning {
+  margin-top: 40px;
+  background: rgba(255,77,109,0.08);
+  border: 1px solid rgba(255,77,109,0.3);
+  border-radius: 12px;
+  padding: 24px 32px;
+  max-width: 540px;
+  text-align: left;
+  position: relative;
+  overflow: hidden;
+}
+.imposter-warning::before {
+  content: '⚠ IMPOSTER SYNDROME DETECTED';
+  display: block;
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: var(--bug-red);
+  margin-bottom: 12px;
+}
+.imposter-text {
+  font-size: 14px;
+  color: var(--text-muted);
+  line-height: 2;
+}
+.imposter-text strong { color: var(--text-primary); }
+.cycle-btn {
+  margin-top: 40px;
+  padding: 16px 40px;
+  background: transparent;
+  border: 2px solid var(--works-green);
+  color: var(--works-green);
+  font-family: var(--mono);
+  font-size: 14px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  cursor: pointer;
+  border-radius: 4px;
+  position: relative;
+  overflow: hidden;
+  transition: color 0.3s;
+}
+.cycle-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--works-green);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.3s ease;
+  z-index: -1;
+}
+.cycle-btn:hover { color: #000; }
+.cycle-btn:hover::after { transform: scaleX(1); }
+.git-commit {
+  margin-top: 30px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: rgba(100,255,218,0.4);
+  font-style: italic;
+}
+
+/* =============================================
+   PROGRESS SIDEBAR
+   ============================================= */
+.progress-sidebar {
+  position: fixed;
+  right: 30px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 500;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+.prog-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+.prog-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.15);
+  border: 1px solid rgba(255,255,255,0.3);
+  transition: all 0.4s ease;
+  flex-shrink: 0;
+}
+.prog-label {
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.3);
+  transition: all 0.4s ease;
+  white-space: nowrap;
+  transform: translateX(10px);
+  opacity: 0;
+  pointer-events: none;
+}
+.prog-item:hover .prog-label { opacity: 1; transform: translateX(0); color: var(--text-primary); }
+.prog-item.active .prog-dot { background: var(--dream-accent); border-color: var(--dream-accent); box-shadow: 0 0 10px var(--dream-accent); transform: scale(1.4); }
+.prog-item.active .prog-label { opacity: 1; transform: translateX(0); color: var(--dream-accent); }
+
+/* =============================================
+   SCROLL PARALLAX LAYERS
+   ============================================= */
+.parallax-layer {
+  position: absolute;
+  pointer-events: none;
+}
+
+/* =============================================
+   RESPONSIVE
+   ============================================= */
+@media (max-width: 768px) {
+  .tutorial-grid, .grind-layout { grid-template-columns: 1fr; gap: 40px; }
+  .error-cards { grid-template-columns: 1fr; }
+  nav { padding: 14px 20px; }
+  .progress-sidebar { display: none; }
+  .tab-stack { height: 220px; }
+  .sob-num { font-size: 60px; }
+}
+
+@media (max-width: 480px) {
+  section { padding: 80px 16px; }
+  .dream-title { font-size: 52px; }
+  .bug-title { font-size: 44px; }
+  .works-title { font-size: 60px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Cursor -->
+<div class="cursor" id="cursor"></div>
+<div class="cursor-ring" id="cursorRing"></div>
+
+<!-- Loader -->
+<div id="loader">
+  <div class="loader-terminal">
+    <div class="loader-bar">
+      <div class="loader-dot"></div>
+      <div class="loader-dot"></div>
+      <div class="loader-dot"></div>
+      <div class="loader-title-bar">dev-life.sh — bash</div>
+    </div>
+    <div class="loader-body" id="loaderBody">
+      <div class="loader-progress"><div class="loader-progress-bar" id="loaderBar"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- Nav -->
+<nav id="mainNav">
+  <div class="nav-logo">THE DEV CYCLE</div>
+  <div class="nav-steps">
+    <div class="nav-step active" data-target="dream"></div>
+    <div class="nav-step" data-target="tutorial"></div>
+    <div class="nav-step" data-target="bug"></div>
+    <div class="nav-step" data-target="grind"></div>
+    <div class="nav-step" data-target="works"></div>
+  </div>
+</nav>
+
+<!-- Progress Sidebar -->
+<aside class="progress-sidebar" id="progressBar">
+  <div class="prog-item active" data-target="dream">
+    <div class="prog-dot"></div>
+    <span class="prog-label">The Dream</span>
+  </div>
+  <div class="prog-item" data-target="tutorial">
+    <div class="prog-dot"></div>
+    <span class="prog-label">Tutorial Hell</span>
+  </div>
+  <div class="prog-item" data-target="bug">
+    <div class="prog-dot"></div>
+    <span class="prog-label">The Bug</span>
+  </div>
+  <div class="prog-item" data-target="grind">
+    <div class="prog-dot"></div>
+    <span class="prog-label">The Grind</span>
+  </div>
+  <div class="prog-item" data-target="works">
+    <div class="prog-dot"></div>
+    <span class="prog-label">IT WORKS!!</span>
+  </div>
+</aside>
+
+<!-- =============================================
+     SECTION 1: THE DREAM
+     ============================================= -->
+<section id="dream">
+  <div class="stars" id="starsContainer"></div>
+
+  <!-- Floating code snippets -->
+  <div class="dream-code-float" style="top:15%; left:5%; animation-delay:-2s; animation-duration:9s;">console.log("hello world");</div>
+  <div class="dream-code-float" style="top:70%; left:3%; animation-delay:-5s; animation-duration:11s; font-size:11px;">function changeTheWorld() {</div>
+  <div class="dream-code-float" style="top:30%; right:4%; animation-delay:-1s; animation-duration:7s;">import React from 'react';</div>
+  <div class="dream-code-float" style="top:80%; right:6%; animation-delay:-4s; animation-duration:10s; font-size:11px;">git commit -m "first commit"</div>
+  <div class="dream-code-float" style="top:50%; left:8%; animation-delay:-7s; animation-duration:12s; font-size:10px;">// TODO: change the world</div>
+
+  <div class="dream-content" id="dreamContent">
+    <p class="dream-eyebrow" id="dreamEyebrow">Chapter I</p>
+    <h1 class="dream-title" id="dreamTitle">THE<br/>DREAM</h1>
+    <p class="dream-sub" id="dreamSub">"I'll learn to code. How hard can it be?"</p>
+  </div>
+
+  <div class="scroll-hint" id="scrollHint">
+    <span>scroll to continue</span>
+    <div class="scroll-arrow"></div>
+  </div>
+</section>
+
+<!-- =============================================
+     SECTION 2: TUTORIAL HELL
+     ============================================= -->
+<section id="tutorial">
+  <div class="section-num">02</div>
+  <div class="tutorial-grid">
+    <div class="tut-left">
+      <p class="section-label">Chapter II</p>
+      <h2 class="tut-heading" id="tutHeading">TUTORIAL<br/>HELL</h2>
+      <p class="tut-body">
+        Day 1: "I'll just watch <strong>one tutorial</strong>."<br/>
+        Day 3: You've watched 47 tutorials.<br/>
+        Day 7: You can explain React hooks perfectly.<br/>
+        Day 8: You cannot write a single line of code from scratch.<br/><br/>
+        Welcome to <strong>Tutorial Hell</strong> — where confidence is inversely proportional to actual ability.
+      </p>
+      <div class="confidence-bar" id="confBar">
+        <div class="conf-label">CONFIDENCE LEVEL (%)</div>
+        <div class="conf-track"><div class="conf-fill" id="confFill"></div></div>
+        <div class="conf-note">↑ Tutorials watched: 47 | ↓ Lines of original code: 0</div>
+      </div>
+    </div>
+    <div class="tut-right">
+      <div class="tab-stack" id="tabStack">
+        <div class="browser-tab">
+          <div class="browser-topbar">
+            <div class="b-dots"><div class="b-dot r"></div><div class="b-dot y"></div><div class="b-dot g"></div></div>
+            <div class="b-url">youtube.com/watch?v=React_Tutorial_For_Beginners_FULL_COURSE_2024</div>
+          </div>
+          <div class="b-body">
+            <span class="highlight">▶ React Tutorial #47 — Now I REALLY understand hooks</span><br/>
+            <span style="color:#444">Duration: 6:42:00 | Views: 2.3M</span><br/>
+            <span style="color:#444; font-size:11px; margin-top:8px; display:block">Progress: ████████░░ 82%</span>
+          </div>
+        </div>
+        <div class="browser-tab">
+          <div class="browser-topbar">
+            <div class="b-dots"><div class="b-dot r"></div><div class="b-dot y"></div><div class="b-dot g"></div></div>
+            <div class="b-url">freecodecamp.org/learn/javascript-algorithms</div>
+          </div>
+          <div class="b-body"><span class="highlight">JavaScript Algorithms — Day 1 (again)</span></div>
+        </div>
+        <div class="browser-tab">
+          <div class="browser-topbar">
+            <div class="b-dots"><div class="b-dot r"></div><div class="b-dot y"></div><div class="b-dot g"></div></div>
+            <div class="b-url">udemy.com/cart — 12 items | $0 (sale ends in 02:14:33)</div>
+          </div>
+          <div class="b-body"><span class="highlight">🛒 "Complete Web Dev 2024 + Bonus: Blockchain & AI"</span></div>
+        </div>
+        <div class="browser-tab">
+          <div class="browser-topbar">
+            <div class="b-dots"><div class="b-dot r"></div><div class="b-dot y"></div><div class="b-dot g"></div></div>
+            <div class="b-url">twitter.com — "Learned CSS Grid today, gonna build Twitter"</div>
+          </div>
+          <div class="b-body"><span class="highlight">Post drafted. Too embarrassing. Deleted.</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =============================================
+     SECTION 3: THE BUG
+     ============================================= -->
+<section id="bug">
+  <div class="bug-bg-glitch"></div>
+  <div class="section-num" style="color:rgba(255,77,109,0.05)">03</div>
+
+  <div class="bug-content">
+    <p class="bug-eyebrow">Chapter III</p>
+    <h2 class="bug-title" id="bugTitle">THE<br/>BUG</h2>
+    <p style="margin-top:20px; color:var(--text-muted); font-size:13px; line-height:2; max-width:600px; margin:20px auto 0;">
+      It was supposed to be a simple button.<br/>
+      You've been debugging for <span id="debugHours" style="color:var(--bug-red);">0</span> hours.
+    </p>
+
+    <div class="error-cards" id="errorCards">
+      <div class="error-card">
+        <div class="err-type">TypeError</div>
+        <div class="err-msg">Cannot read properties of undefined (reading 'map')</div>
+        <div class="err-line">at App.jsx:47:23</div>
+        <div class="err-reaction">I'm fine. This is fine. 🔥</div>
+      </div>
+      <div class="error-card">
+        <div class="err-type">ReferenceError</div>
+        <div class="err-msg">useState is not defined</div>
+        <div class="err-line">at Component.js:3:1</div>
+        <div class="err-reaction">...I forgot to import it again, didn't I.</div>
+      </div>
+      <div class="error-card">
+        <div class="err-type">SyntaxError</div>
+        <div class="err-msg">Unexpected token '}'. Expected expression.</div>
+        <div class="err-line">at index.js:112:1</div>
+        <div class="err-reaction">scrolled past it 40 times. It was a semicolon.</div>
+      </div>
+      <div class="error-card">
+        <div class="err-type">CORS Error</div>
+        <div class="err-msg">Access to fetch blocked by CORS policy</div>
+        <div class="err-line">at fetch.js:1:1</div>
+        <div class="err-reaction">Stack Overflow said add a header. What header?! WHAT HEADER?!</div>
+      </div>
+      <div class="error-card">
+        <div class="err-type">Logic Error</div>
+        <div class="err-msg">"Why does my loop run 11 times? I set it to 10."</div>
+        <div class="err-line">at loop.js:7:3</div>
+        <div class="err-reaction">I googled "off by one error" for the 300th time.</div>
+      </div>
+      <div class="error-card">
+        <div class="err-type">Existential Error</div>
+        <div class="err-msg">The bug is not in the code. The bug is you.</div>
+        <div class="err-line">at life.js:∞</div>
+        <div class="err-reaction">Maybe farming was a viable career path.</div>
+      </div>
+    </div>
+
+    <div class="sob-counter">
+      Stack Overflow visits today: <span class="sob-num" id="sobNum">0</span>
+    </div>
+  </div>
+</section>
+
+<!-- =============================================
+     SECTION 4: THE GRIND
+     ============================================= -->
+<section id="grind">
+  <div class="section-num" style="color:rgba(255,154,60,0.04)">04</div>
+  <div class="grind-layout">
+    <div>
+      <p class="section-label">Chapter IV</p>
+      <h2 class="grind-heading">THE<br/>GRIND</h2>
+      <span class="grind-time" id="grindClock">03:47 AM</span>
+      <p class="grind-desc">
+        The deadline is in <strong>6 hours</strong>. The feature is <strong>40% done</strong>.<br/>
+        The coffee is <strong>cold</strong>. The eyes are <strong>burning</strong>.<br/>
+        The commit history reads <strong>"fix", "fix2", "PLEASE WORK", "why"</strong>.<br/><br/>
+        This is not suffering. This is the <strong>craft</strong>.
+      </p>
+      <div class="coffee-meter">
+        <div class="coffee-title">Caffeine Consumption Log</div>
+        <div class="coffee-cups" id="coffeeCups">
+          <span class="cup">☕</span><span class="cup">☕</span><span class="cup">☕</span>
+          <span class="cup">☕</span><span class="cup">☕</span><span class="cup">☕</span>
+          <span class="cup">☕</span><span class="cup">☕</span><span class="cup">☕</span>
+          <span class="cup">☕</span><span class="cup">☕</span><span class="cup">☕</span>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="stackoverflow-widget" id="soWidget">
+        <div class="so-header">
+          <span class="so-logo">📚</span>
+          <span>Stack Overflow — Your Shrine</span>
+        </div>
+        <div class="so-question">
+          <div class="so-q-title">Why does my code work at 2am but not at 9am?</div>
+          <div class="so-q-body">I have a React app. Everything works perfectly when I write the code at 2am. The next morning, same code, same machine — broken. Is this a timezone thing? A sleep deprivation thing? A cosmic joke?</div>
+        </div>
+        <div class="so-answers">
+          <div class="so-answer">
+            <div class="so-score"><div class="so-score-num">847</div>▲</div>
+            <div class="so-a-text">This is a well-documented phenomenon called <span class="inline-code">observer effect debugging</span>. The code works because you expect it to work at 2am. Try: <span class="inline-code">git stash</span>, sleep, <span class="inline-code">git stash pop</span>.</div>
+          </div>
+          <div class="so-answer">
+            <div class="so-score accepted"><div class="so-mark">✓</div><div class="so-score-num">412</div></div>
+            <div class="so-a-text">Have you tried <span class="inline-code">turning it off and on again</span>? Also check if you have a <span class="inline-code">console.log("why are you like this")</span> somewhere that's somehow fixing a race condition.</div>
+          </div>
+          <div class="so-answer">
+            <div class="so-score"><div class="so-score-num">-2</div>▼</div>
+            <div class="so-a-text">Skill issue. <span class="inline-code">// marked as duplicate</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- =============================================
+     SECTION 5: IT WORKS!!
+     ============================================= -->
+<section id="works">
+  <div class="confetti-container" id="confettiContainer"></div>
+
+  <div class="works-content" id="worksContent">
+    <p class="works-eyebrow">Chapter V — The Finale</p>
+    <h2 class="works-title" id="worksTitle">IT<br/>WORKS!!</h2>
+    <p class="works-subtitle">...I have no idea why. Don't touch it.</p>
+
+    <div class="imposter-warning" id="imposterWarning">
+      <p class="imposter-text">
+        You did it. The feature is live. Users are using it. <strong>You are a real developer.</strong><br/><br/>
+        <em>...but what if they find out you googled how to center a div today?</em><br/>
+        <em>...what if someone reads your commit history?</em><br/>
+        <em>...what if you're just pretending and—</em>
+      </p>
+    </div>
+
+    <button class="cycle-btn" id="cycleBtn" onclick="restartCycle()">
+      → Start the Cycle Again
+    </button>
+
+    <div class="git-commit" id="gitCommit">
+      git commit -m "it works, ship it, don't look back, godspeed"
+    </div>
+  </div>
+</section>
+
+<script>
+// =============================================
+// CUSTOM CURSOR
+// =============================================
+const cursor = document.getElementById('cursor');
+const ring = document.getElementById('cursorRing');
+let mx = 0, my = 0, rx = 0, ry = 0;
+
+document.addEventListener('mousemove', e => { mx = e.clientX; my = e.clientY; });
+
+function animateCursor() {
+  rx += (mx - rx) * 0.15;
+  ry += (my - ry) * 0.15;
+  cursor.style.transform = `translate(${mx - 6}px, ${my - 6}px)`;
+  ring.style.transform = `translate(${rx - 18}px, ${ry - 18}px)`;
+  requestAnimationFrame(animateCursor);
+}
+animateCursor();
+
+document.querySelectorAll('a, button, .error-card, .prog-item, .nav-step, .cup').forEach(el => {
+  el.addEventListener('mouseenter', () => { cursor.classList.add('hover'); ring.classList.add('hover'); });
+  el.addEventListener('mouseleave', () => { cursor.classList.remove('hover'); ring.classList.remove('hover'); });
+});
+
+// =============================================
+// STARS
+// =============================================
+const starsContainer = document.getElementById('starsContainer');
+for (let i = 0; i < 120; i++) {
+  const star = document.createElement('div');
+  star.className = 'star';
+  const size = Math.random() * 2.5 + 0.5;
+  star.style.cssText = `
+    width:${size}px; height:${size}px;
+    left:${Math.random()*100}%; top:${Math.random()*100}%;
+    --dur:${Math.random()*3+2}s; --delay:${Math.random()*4}s;
+  `;
+  starsContainer.appendChild(star);
+}
+
+// =============================================
+// CONFETTI
+// =============================================
+const confetti = document.getElementById('confettiContainer');
+const colors = ['#64ffda','#ffd166','#ff4d6d','#06d6a0','#ff9a3c','#fff','#a8dadc'];
+for (let i = 0; i < 80; i++) {
+  const p = document.createElement('div');
+  p.className = 'confetti-piece';
+  p.style.cssText = `
+    left:${Math.random()*100}%;
+    background:${colors[Math.floor(Math.random()*colors.length)]};
+    --fall-dur:${Math.random()*3+2.5}s;
+    --fall-delay:${Math.random()*4}s;
+    width:${Math.random()*8+4}px;
+    height:${Math.random()*12+6}px;
+    transform: rotate(${Math.random()*360}deg);
+    border-radius: ${Math.random() > 0.5 ? '50%' : '2px'};
+  `;
+  confetti.appendChild(p);
+}
+
+// =============================================
+// LOADING SEQUENCE
+// =============================================
+const lines = [
+  { text: '$ node dev-life.js', class: '' },
+  { text: '> Loading dreams...', class: '' },
+  { text: '> npm install confidence', class: '' },
+  { text: 'warning: confidence@99.9 has 47 peer dependencies', class: 'warn' },
+  { text: '> Importing tutorial_hell...', class: '' },
+  { text: 'error: Cannot read properties of undefined', class: 'err' },
+  { text: '> Stack Overflow: found 847 answers', class: '' },
+  { text: '> Coffee dependency installed ✓', class: '' },
+  { text: '> Compiling the experience...', class: '' },
+  { text: '✓ Ready. But why does it work?', class: '' },
+];
+
+async function runLoader() {
+  const body = document.getElementById('loaderBody');
+  const bar = document.getElementById('loaderBar');
+  
+  for (let i = 0; i < lines.length; i++) {
+    await new Promise(r => setTimeout(r, 280));
+    const div = document.createElement('div');
+    div.className = `loader-line ${lines[i].class}`;
+    div.textContent = lines[i].text;
+    body.insertBefore(div, body.querySelector('.loader-progress'));
+    gsap.to(div, { opacity: 1, duration: 0.2 });
+    bar.style.width = `${((i+1)/lines.length)*100}%`;
+  }
+  
+  await new Promise(r => setTimeout(r, 500));
+  gsap.to('#loader', {
+    opacity: 0, duration: 0.8, ease: 'power2.inOut',
+    onComplete: () => {
+      document.getElementById('loader').style.display = 'none';
+      initAnimations();
+    }
+  });
+}
+
+// =============================================
+// MAIN ANIMATIONS (GSAP + ScrollTrigger)
+// =============================================
+function initAnimations() {
+  gsap.registerPlugin(ScrollTrigger);
+
+  // Reveal nav
+  gsap.to('#mainNav', { translateY: '0%', duration: 0.8, ease: 'power3.out' });
+
+  // Reveal progress bar
+  gsap.to('#progressBar', { opacity: 1, duration: 0.8, delay: 0.5 });
+
+  // ---- SECTION 1: DREAM ----
+  gsap.to('#dreamEyebrow', { opacity: 1, duration: 0.8, delay: 0.3 });
+  gsap.from('#dreamTitle', { opacity: 0, y: 60, duration: 1.2, delay: 0.5, ease: 'power3.out', onStart: () => gsap.to('#dreamTitle', { opacity: 1, y: 0, duration: 1.2 }) });
+  gsap.to('#dreamTitle', { opacity: 1, y: 0, duration: 1.2, delay: 0.5, ease: 'power3.out' });
+  gsap.to('#dreamSub', { opacity: 1, duration: 0.8, delay: 1.0 });
+  gsap.to('#scrollHint', { opacity: 1, duration: 0.8, delay: 1.5 });
+
+  // Parallax: floating code snippets on scroll
+  gsap.utils.toArray('.dream-code-float').forEach((el, i) => {
+    gsap.to(el, {
+      y: (i % 2 === 0 ? -80 : 80),
+      scrollTrigger: {
+        trigger: '#dream',
+        start: 'top top',
+        end: 'bottom top',
+        scrub: 1.5,
+      }
+    });
+  });
+
+  // ---- SECTION 2: TUTORIAL ----
+  gsap.from('#tutHeading', {
+    x: -80, opacity: 0, duration: 1,
+    scrollTrigger: { trigger: '#tutorial', start: 'top 70%', toggleActions: 'play none none none' }
+  });
+
+  gsap.utils.toArray('.browser-tab').forEach((tab, i) => {
+    gsap.from(tab, {
+      y: 60, opacity: 0, duration: 0.6, delay: i * 0.12,
+      scrollTrigger: { trigger: '#tutorial', start: 'top 60%', toggleActions: 'play none none none' }
+    });
+  });
+
+  ScrollTrigger.create({
+    trigger: '#tutorial',
+    start: 'top 40%',
+    onEnter: () => { document.getElementById('confFill').style.width = '94%'; }
+  });
+
+  // Parallax: section number drifts
+  gsap.to('#tutorial .section-num', {
+    y: -100,
+    scrollTrigger: { trigger: '#tutorial', start: 'top bottom', end: 'bottom top', scrub: 2 }
+  });
+
+  // ---- SECTION 3: BUG ----
+  gsap.from('#bugTitle', {
+    scale: 0.5, opacity: 0, duration: 1.2, ease: 'elastic.out(1, 0.5)',
+    scrollTrigger: { trigger: '#bug', start: 'top 60%', toggleActions: 'play none none none' }
+  });
+
+  gsap.utils.toArray('.error-card').forEach((card, i) => {
+    gsap.to(card, {
+      y: 0, opacity: 1, duration: 0.6, delay: i * 0.1,
+      scrollTrigger: { trigger: '#bug', start: 'top 50%', toggleActions: 'play none none none' }
+    });
+  });
+
+  // Counter animation: debug hours
+  ScrollTrigger.create({
+    trigger: '#bug',
+    start: 'top 50%',
+    onEnter: () => {
+      let count = 0;
+      const el = document.getElementById('debugHours');
+      const interval = setInterval(() => {
+        count++;
+        el.textContent = count;
+        if (count >= 14) clearInterval(interval);
+      }, 120);
+    }
+  });
+
+  // Counter animation: Stack Overflow visits
+  ScrollTrigger.create({
+    trigger: '#bug',
+    start: 'top 40%',
+    onEnter: () => {
+      let count = 0;
+      const el = document.getElementById('sobNum');
+      const interval = setInterval(() => {
+        count += 3;
+        el.textContent = count;
+        if (count >= 97) { el.textContent = 97; clearInterval(interval); }
+      }, 40);
+    }
+  });
+
+  // ---- SECTION 4: GRIND ----
+  gsap.from('.grind-heading', {
+    y: 60, opacity: 0, duration: 1,
+    scrollTrigger: { trigger: '#grind', start: 'top 65%', toggleActions: 'play none none none' }
+  });
+
+  gsap.from('#grindClock', {
+    opacity: 0, x: -40, duration: 0.8, delay: 0.3,
+    scrollTrigger: { trigger: '#grind', start: 'top 65%', toggleActions: 'play none none none' }
+  });
+
+  // Coffee cups animation
+  ScrollTrigger.create({
+    trigger: '#grind',
+    start: 'top 50%',
+    onEnter: () => {
+      const cups = document.querySelectorAll('.cup');
+      cups.forEach((cup, i) => {
+        setTimeout(() => cup.classList.add('consumed'), i * 200);
+      });
+    }
+  });
+
+  gsap.from('#soWidget', {
+    y: 50, opacity: 0, duration: 0.9, delay: 0.2,
+    scrollTrigger: { trigger: '#grind', start: 'top 55%', toggleActions: 'play none none none' }
+  });
+
+  // ---- SECTION 5: WORKS ----
+  gsap.from('#worksTitle', {
+    scale: 0.3, opacity: 0, duration: 1.5, ease: 'elastic.out(1, 0.4)',
+    scrollTrigger: { trigger: '#works', start: 'top 60%', toggleActions: 'play none none none' }
+  });
+
+  gsap.from('#imposterWarning', {
+    y: 40, opacity: 0, duration: 0.8, delay: 0.5,
+    scrollTrigger: { trigger: '#works', start: 'top 50%', toggleActions: 'play none none none' }
+  });
+
+  gsap.from('#cycleBtn', {
+    y: 30, opacity: 0, duration: 0.8, delay: 0.9,
+    scrollTrigger: { trigger: '#works', start: 'top 50%', toggleActions: 'play none none none' }
+  });
+
+  gsap.from('#gitCommit', {
+    opacity: 0, duration: 1.2, delay: 1.3,
+    scrollTrigger: { trigger: '#works', start: 'top 50%', toggleActions: 'play none none none' }
+  });
+
+  // ---- ACTIVE SECTION TRACKER ----
+  const sections = ['dream','tutorial','bug','grind','works'];
+  sections.forEach(id => {
+    ScrollTrigger.create({
+      trigger: `#${id}`,
+      start: 'top 50%',
+      end: 'bottom 50%',
+      onEnter: () => updateActive(id),
+      onEnterBack: () => updateActive(id),
+    });
+  });
+}
+
+function updateActive(id) {
+  document.querySelectorAll('.nav-step, .prog-item').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll(`[data-target="${id}"]`).forEach(el => el.classList.add('active'));
+}
+
+// Nav / sidebar click navigation
+document.querySelectorAll('[data-target]').forEach(el => {
+  el.addEventListener('click', () => {
+    document.getElementById(el.dataset.target).scrollIntoView({ behavior: 'smooth' });
+  });
+});
+
+// Restart cycle
+function restartCycle() {
+  document.getElementById('dream').scrollIntoView({ behavior: 'smooth' });
+  // Reset animations
+  setTimeout(() => {
+    document.querySelectorAll('.cup').forEach(c => c.classList.remove('consumed'));
+    document.getElementById('confFill').style.width = '0%';
+  }, 1000);
+}
+
+// Clock in grind
+function updateClock() {
+  const now = new Date();
+  const h = String(now.getHours()).padStart(2,'0');
+  const m = String(now.getMinutes()).padStart(2,'0');
+  const el = document.getElementById('grindClock');
+  if (el) el.textContent = `${h}:${m}`;
+}
+setInterval(updateClock, 30000);
+
+// Error cards: click for extra sass
+const sassList = [
+  "Have you tried turning it off and on again?",
+  "Did you clear the cache? All caches. Your browser, your RAM, your soul.",
+  "It works on MY machine ¯\\_(ツ)_/¯",
+  "The bug is between the keyboard and chair.",
+  "According to Stack Overflow, this is 'by design'.",
+  "God is testing you. The test is failing.",
+  "Have you tried asking ChatGPT? It will lie confidently to you.",
+];
+document.querySelectorAll('.error-card').forEach(card => {
+  card.addEventListener('click', function() {
+    const reaction = this.querySelector('.err-reaction');
+    reaction.textContent = sassList[Math.floor(Math.random() * sassList.length)];
+    gsap.from(reaction, { y: 10, opacity: 0, duration: 0.3 });
+  });
+});
+
+// START
+runLoader();
+</script>
+</body>
+</html>
